@@ -1,0 +1,7 @@
+#Manukiran Kamath, 1002068674, manukiran.kamath@mail.utoronto.ca
+
+Part 1 Explanation:
+1. We use : dig utoronto.ca +short to get the IPv4 address
+2. Using dig utoronto.ca we can find both the name servers, and both use the same IPv4
+3. We use dig utoronto.ca MX to get the mail server info
+4. We run the BIND server on one terminal, and on another we send a DNS query dig @<server address> utoronto.ca -p <BIND listening port #> to confirm our answers match in subparts 1-3. 
