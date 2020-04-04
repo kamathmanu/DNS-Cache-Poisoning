@@ -9,3 +9,7 @@ Part 1 Explanation:
 Part 2 Explanation:
 Our proxy is constructed as follows:
 We create a socket and bind to our proxy's port (--port arg) and then listen for an incoming dig request. When we get this, we send a DNS query to the upstream BIND server, and then wait for it's response. Once this is done, we forward the response back to the address and port that we got from the initial client (dig). 
+
+Part 3 Explanation:
+We build off the proxy in pt2. To spoof when the spoof_response mode is turned off, we get the IP and name servers by
+accessing the respective fields: packet.an[DNSRR].rdata for IPv4, and packet.ns[DNSRR][i].rdata and packet.ns[DNSRR][i].rrname for NS. Note for the name server, there could be multiple NS so we use the nscount counter to loop through all of them. From our part 2 code, once we get the DNS response from the BIND server, we spoof as explained above and forward it to dig.
