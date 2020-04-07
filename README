@@ -13,3 +13,10 @@ We create a socket and bind to our proxy's port (--port arg) and then listen for
 Part 3 Explanation:
 We build off the proxy in pt2. To spoof when the spoof_response mode is turned off, we get the IP and name servers by
 accessing the respective fields: packet.an[DNSRR].rdata for IPv4, and packet.ns[DNSRR][i].rdata and packet.ns[DNSRR][i].rrname for NS. Note for the name server, there could be multiple NS so we use the nscount counter to loop through all of them. From our part 2 code, once we get the DNS response from the BIND server, we spoof as explained above and forward it to dig.
+
+Part4 Explanation:
+
+1. We first construct a DNS query request to BIND for a supposed subdomain of example.com: <random_string>.example.com.
+Since this mapping wouldn't exist in BIND's cache, it would have to fetch it from the actual name server. 
+2. At the same time, pretending to be the NS, we send a flood of spoofed responses that have been carefully constructed by modifying the qname, aa, qr, ancount and nscount appropriately to make it appear as though the 'example.com.' NS is sending a response. In addition, we modify the an and ns fields of the DNS response to with the spoofed IP address (not relevant for this lab) and domain name (by which the BIND server recognizes the response), and change the name server to our attacker nameserver. Most importantly, we set the TXID to a randomly guessed 8 bit number. 
+3. Our hope is that the TXID matches the correct TXID for the request sent by BIND - if this doesn't work, we simply perform a brute force and repeat steps 1-2 until it works.
