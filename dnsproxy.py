@@ -8,7 +8,6 @@ from scapy.all import *
 parser = argparse.ArgumentParser()
 parser.add_argument("--port", help="port to run your proxy on - careful to not run it on the same port as the BIND server", type=int, required=True)
 parser.add_argument("--dns_port", help="port the BIND uses to listen to dns queries", type=int, required=True)
-#parser.add_argument("--query_port", help="port from where your bind sends DNS queries - query-source port parameter in named.conf", type=int)
 parser.add_argument("--spoof_response", action="store_true", help="flag to indicate whether you want to spoof the BIND Server's response (Part 3) or return it as is (Part 2). Set to True for Part 3 and False for Part 2", default=False)
 args = parser.parse_args()
 
@@ -16,8 +15,6 @@ args = parser.parse_args()
 port = args.port
 # BIND's port
 dns_port = args.dns_port
-# Port from where BIND sends queries
-query_port = args.query_port
 # Flag to indicate if the proxy should spoof responses
 SPOOF = args.spoof_response
 #Default BIND server
